@@ -11,7 +11,7 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, collection, onSnapshot, query, where, getDocs, getDocFromServer, deleteDoc } from 'firebase/firestore';
-import firebaseConfig from './firebase-applet-config.json';
+import firebaseConfig from '../firebase-applet-config.json';
 import { UserProfile, UserRole } from './types';
 
 const app = initializeApp(firebaseConfig);

@@ -20,7 +20,7 @@ import {
   parse
 } from 'date-fns';
 import { Shift, ShiftCode, Technician, UserProfile, UserRole } from './types';
-import firebaseConfig from './firebase-applet-config.json';
+import firebaseConfig from '../firebase-applet-config.json';
 import { ChevronLeftIcon, ChevronRightIcon, SparklesIcon, CalendarIcon, ShareIcon } from './components/Icons';
 import { parseShiftFromText } from './services/geminiService';
 import TechManagerModal from './components/TechManagerModal';
