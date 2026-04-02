@@ -1,6 +1,7 @@
 {
   "name": "titanschedule-pro",
   "private": true,
+  "homepage": "https://kjvbible101.github.io/Schedule-Titan/",
   "version": "0.0.0",
   "type": "module",
   "scripts": {

@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
       },
       plugins: [react(), tailwindcss()],
-      base: './',
+      base: '/Schedule-Titan/',
       build: {
         outDir: 'docs',
         emptyOutDir: true,
