@@ -12,6 +12,10 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react(), tailwindcss()],
       base: './',
+      build: {
+        outDir: 'docs',
+        emptyOutDir: true,
+      },
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
