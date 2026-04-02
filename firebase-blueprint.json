@@ -20,9 +20,10 @@
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
-        "code": { "type": "string" }
+        "code": { "type": "string" },
+        "category": { "type": "string", "enum": ["Cable", "I&R"] }
       },
-      "required": ["id", "name", "code"]
+      "required": ["id", "name", "code", "category"]
     },
     "Shift": {
       "title": "Shift",

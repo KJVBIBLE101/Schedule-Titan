@@ -19,10 +19,9 @@ import {
   isWeekend,
   parse
 } from 'date-fns';
-import { Shift, ShiftCode, Technician, UserProfile, UserRole } from './types';
+import { Shift, ShiftCode, Technician, UserProfile, UserRole, TechnicianGroup, CalendarConfig } from './types';
 import firebaseConfig from '../firebase-applet-config.json';
-import { ChevronLeftIcon, ChevronRightIcon, SparklesIcon, CalendarIcon, ShareIcon } from './components/Icons';
-import { parseShiftFromText } from './services/geminiService';
+import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon, ShareIcon } from './components/Icons';
 import TechManagerModal from './components/TechManagerModal';
 import { 
   auth, 
@@ -308,19 +307,19 @@ const Login: React.FC<LoginProps> = ({ onClose }) => {
 };
 
 const DEFAULT_TECHNICIANS: Technician[] = [
-  { id: '061', name: 'Jerry Aschoff', code: '061' },
-  { id: '261', name: 'Thomas Jimenez', code: '261' },
-  { id: '700', name: 'Darrin Westberg', code: '700' },
-  { id: '375', name: 'Bryan Baca', code: '375' },
-  { id: '170', name: 'Richard Hood', code: '170' },
-  { id: '171', name: 'Jason Hood', code: '171' },
-  { id: '804', name: 'David Winterfeldt', code: '804' },
-  { id: '435', name: 'Jeremiah Lawson', code: '435' },
-  { id: '391', name: 'Mike Roth Roth', code: '391' },
-  { id: '392', name: 'Anthony Paul', code: '392' },
-  { id: '429', name: 'Chris Hovelsen', code: '429' },
-  { id: '753', name: 'Robert Hernandez', code: '753' },
-  { id: '999', name: 'Gavin Erb', code: 'GE' },
+  { id: '061', name: 'Jerry Aschoff', code: '061', group: TechnicianGroup.MAIN },
+  { id: '261', name: 'Thomas Jimenez', code: '261', group: TechnicianGroup.MAIN },
+  { id: '700', name: 'Darrin Westberg', code: '700', group: TechnicianGroup.MAIN },
+  { id: '375', name: 'Bryan Baca', code: '375', group: TechnicianGroup.MAIN },
+  { id: '170', name: 'Richard Hood', code: '170', group: TechnicianGroup.MAIN },
+  { id: '171', name: 'Jason Hood', code: '171', group: TechnicianGroup.MAIN },
+  { id: '804', name: 'David Winterfeldt', code: '804', group: TechnicianGroup.MAIN },
+  { id: '435', name: 'Jeremiah Lawson', code: '435', group: TechnicianGroup.MAIN },
+  { id: '391', name: 'Mike Roth Roth', code: '391', group: TechnicianGroup.MAIN },
+  { id: '392', name: 'Anthony Paul', code: '392', group: TechnicianGroup.MAIN },
+  { id: '429', name: 'Chris Hovelsen', code: '429', group: TechnicianGroup.MAIN },
+  { id: '753', name: 'Robert Hernandez', code: '753', group: TechnicianGroup.MAIN },
+  { id: '999', name: 'Gavin Erb', code: 'GE', group: TechnicianGroup.MAIN },
 ];
 
 const SHIFT_METADATA: Record<ShiftCode, { color: string; label: string; bg: string }> = {
@@ -343,8 +342,6 @@ const App: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date()); 
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
-  const [aiInput, setAiInput] = useState('');
-  const [isProcessingAi, setIsProcessingAi] = useState(false);
   
   const [activeTool, setActiveTool] = useState<ShiftCode | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -352,6 +349,11 @@ const App: React.FC = () => {
   const [isTechModalOpen, setIsTechModalOpen] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [viewMode, setViewMode] = useState<'week' | 'month' | 'year'>('month');
+  const [activeGroup, setActiveGroup] = useState<TechnicianGroup>(TechnicianGroup.MAIN);
+  const [calendarConfig, setCalendarConfig] = useState<CalendarConfig>({
+    mainLabel: 'Main',
+    irLabel: 'I&R'
+  });
   const [copySuccess, setCopySuccess] = useState(false);
 
   const isManager = user?.role === UserRole.MANAGER;
@@ -404,9 +406,16 @@ const App: React.FC = () => {
       setShifts(shiftData);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'shifts'));
 
+    const unsubConfig = onSnapshot(doc(db, 'config', 'calendar'), (doc) => {
+      if (doc.exists()) {
+        setCalendarConfig(doc.data() as CalendarConfig);
+      }
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'config/calendar'));
+
     return () => {
       unsubTechs();
       unsubShifts();
+      unsubConfig();
     };
   }, []);
 
@@ -415,6 +424,10 @@ const App: React.FC = () => {
     window.addEventListener('mouseup', handleMouseUp);
     return () => window.removeEventListener('mouseup', handleMouseUp);
   }, []);
+
+  const filteredTechnicians = useMemo(() => {
+    return technicians.filter(t => (t.group || TechnicianGroup.MAIN) === activeGroup);
+  }, [technicians, activeGroup]);
 
   const days = useMemo(() => {
     if (viewMode === 'month') {
@@ -448,11 +461,15 @@ const App: React.FC = () => {
     }
   }, [isManager]);
 
-  const handleTechSave = async (updatedTechs: Technician[], idMap: Record<string, string>) => {
+  const handleTechSave = async (updatedTechs: Technician[], idMap: Record<string, string>, updatedConfig?: CalendarConfig) => {
     if (!isManager) return;
     
     try {
       const batch = writeBatch(db);
+      
+      if (updatedConfig) {
+        batch.set(doc(db, 'config', 'calendar'), updatedConfig);
+      }
       
       // Update technicians
       // First delete all (or we could be more surgical, but for simplicity in this small app)
@@ -612,22 +629,6 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAiSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!aiInput.trim() || isProcessingAi) return;
-    setIsProcessingAi(true);
-    const techNames = technicians.map(t => t.name);
-    const result = await parseShiftFromText(aiInput, techNames, format(currentDate, 'yyyy-MM-dd'));
-    if (result) {
-      const tech = technicians.find(t => t.name.toLowerCase().includes(result.technicianName.toLowerCase()));
-      if (tech) {
-        applyShift(tech.id, result.date, result.shiftCode);
-        setAiInput('');
-      }
-    }
-    setIsProcessingAi(false);
-  };
-
   const getShift = (techId: string, date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     return shifts.find(s => s.techId === techId && s.date === dateStr);
@@ -652,6 +653,7 @@ const App: React.FC = () => {
           isOpen={isTechModalOpen} 
           onClose={() => setIsTechModalOpen(false)} 
           technicians={technicians}
+          calendarConfig={calendarConfig}
           onSave={handleTechSave}
         />
 
@@ -706,18 +708,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3 flex-1 justify-center px-4">
-            {isManager && (
-              <form onSubmit={handleAiSubmit} className="flex-1 max-w-[500px] relative group">
-                <SparklesIcon className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isProcessingAi ? 'text-indigo-500 animate-pulse' : 'text-slate-400'}`} />
-                <input 
-                  type="text"
-                  placeholder="AI Assign (e.g. 'Assign Jerry WRK for next week')..."
-                  className="w-full bg-slate-100 border-none rounded-xl pl-10 pr-4 py-2 text-xs focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
-                  value={aiInput}
-                  onChange={(e) => setAiInput(e.target.value)}
-                />
-              </form>
-            )}
+            <div className="flex-1"></div>
             
             <div className="flex gap-2">
               {isManager && (
@@ -789,7 +780,23 @@ const App: React.FC = () => {
           <div className="min-w-max bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden">
             <div className="flex border-b border-slate-200 sticky top-0 z-20 bg-white">
               <div className="w-24 sm:w-64 shrink-0 bg-slate-50 border-r border-slate-200 px-2 sm:px-4 py-3 flex items-end">
+                <div className="flex flex-col items-center gap-1">
                 <span className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Tech Info</span>
+                <div className="flex bg-slate-100 p-0.5 rounded-lg">
+                  <button 
+                    onClick={() => setActiveGroup(TechnicianGroup.MAIN)}
+                    className={`px-2 py-0.5 text-[8px] font-black uppercase rounded-md transition-all ${activeGroup === TechnicianGroup.MAIN ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    {calendarConfig.mainLabel}
+                  </button>
+                  <button 
+                    onClick={() => setActiveGroup(TechnicianGroup.IR)}
+                    className={`px-2 py-0.5 text-[8px] font-black uppercase rounded-md transition-all ${activeGroup === TechnicianGroup.IR ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    {calendarConfig.irLabel}
+                  </button>
+                </div>
+              </div>
               </div>
               {days.map((day, idx) => {
                 const isStartOfWeek = idx % 7 === 0;
@@ -815,7 +822,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="divide-y divide-slate-100">
-              {technicians.map((tech) => (
+              {filteredTechnicians.map((tech) => (
                 <div key={tech.id} className="flex hover:bg-slate-50 transition-colors group">
                   <div className="w-24 sm:w-64 shrink-0 px-2 sm:px-4 py-2 border-r border-slate-200 flex items-center justify-between sticky left-0 z-10 bg-inherit shadow-[4px_0_10px_-5px_rgba(0,0,0,0.05)]">
                     <div className="flex flex-col min-w-0">

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Technician, UserProfile, UserRole } from '../types';
+import { Technician, UserProfile, UserRole, TechnicianGroup, CalendarConfig } from '../types';
 import { db, resetPassword } from '../firebase';
 import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 
@@ -8,15 +8,25 @@ interface TechManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
   technicians: Technician[];
-  onSave: (updatedTechs: Technician[], idMap: Record<string, string>) => void;
+  calendarConfig: CalendarConfig;
+  onSave: (updatedTechs: Technician[], idMap: Record<string, string>, updatedConfig?: CalendarConfig) => void;
 }
 
-const TechManagerModal: React.FC<TechManagerModalProps> = ({ isOpen, onClose, technicians, onSave }) => {
+const TechManagerModal: React.FC<TechManagerModalProps> = ({ isOpen, onClose, technicians, calendarConfig, onSave }) => {
   const [localTechs, setLocalTechs] = useState<Technician[]>(technicians);
-  const [activeTab, setActiveTab] = useState<'techs' | 'users'>('techs');
+  const [localConfig, setLocalConfig] = useState<CalendarConfig>(calendarConfig);
+  const [activeTab, setActiveTab] = useState<'techs' | 'users' | 'config'>('techs');
+  const [activeGroupTab, setActiveGroupTab] = useState<TechnicianGroup>(TechnicianGroup.MAIN);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [resetStatus, setResetStatus] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (isOpen) {
+      setLocalTechs(technicians);
+      setLocalConfig(calendarConfig);
+    }
+  }, [isOpen, technicians, calendarConfig]);
 
   useEffect(() => {
     if (isOpen && activeTab === 'users') {
@@ -69,19 +79,19 @@ const TechManagerModal: React.FC<TechManagerModalProps> = ({ isOpen, onClose, te
 
   const handleAddTech = () => {
     const newId = Math.random().toString(36).substr(2, 3);
-    setLocalTechs([...localTechs, { id: newId, name: 'New Technician' }]);
+    setLocalTechs([...localTechs, { id: newId, name: 'New Technician', code: newId, group: activeGroupTab }]);
   };
 
   const handleRemoveTech = (id: string) => {
     setLocalTechs(localTechs.filter(t => t.id !== id));
   };
 
-  const handleUpdateTech = (id: string, name: string) => {
-    setLocalTechs(localTechs.map(t => t.id === id ? { ...t, name } : t));
+  const handleUpdateTech = (id: string, name: string, code: string, group: TechnicianGroup) => {
+    setLocalTechs(localTechs.map(t => t.id === id ? { ...t, name, code, group } : t));
   };
 
   const handleSave = () => {
-    onSave(localTechs, {});
+    onSave(localTechs, {}, localConfig);
     onClose();
   };
 
@@ -112,22 +122,53 @@ const TechManagerModal: React.FC<TechManagerModalProps> = ({ isOpen, onClose, te
           >
             User Access
           </button>
+          <button 
+            onClick={() => setActiveTab('config')}
+            className={`flex-1 py-3 text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'config' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:bg-slate-50'}`}
+          >
+            Settings
+          </button>
         </div>
 
         <div className="flex-1 overflow-auto p-6">
           {activeTab === 'techs' ? (
             <div className="space-y-4">
-              {localTechs.map((tech) => (
+              <div className="flex bg-slate-100 p-1 rounded-xl mb-4">
+                <button 
+                  onClick={() => setActiveGroupTab(TechnicianGroup.MAIN)}
+                  className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${activeGroupTab === TechnicianGroup.MAIN ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                >
+                  {localConfig.mainLabel}
+                </button>
+                <button 
+                  onClick={() => setActiveGroupTab(TechnicianGroup.IR)}
+                  className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${activeGroupTab === TechnicianGroup.IR ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                >
+                  {localConfig.irLabel}
+                </button>
+              </div>
+
+              {localTechs.filter(t => (t.group || TechnicianGroup.MAIN) === activeGroupTab).map((tech) => (
                 <div key={tech.id} className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
                   <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center font-black text-xs">
                     {tech.id}
                   </div>
-                  <input 
-                    type="text"
-                    value={tech.name}
-                    onChange={(e) => handleUpdateTech(tech.id, e.target.value)}
-                    className="flex-1 bg-transparent border-none focus:ring-0 font-bold text-slate-700"
-                  />
+                  <div className="flex-1 flex gap-2 items-center">
+                    <input 
+                      type="text"
+                      placeholder="Name"
+                      value={tech.name}
+                      onChange={(e) => handleUpdateTech(tech.id, e.target.value, tech.code, tech.group || TechnicianGroup.MAIN)}
+                      className="flex-1 bg-transparent border-none focus:ring-0 font-bold text-slate-700"
+                    />
+                    <input 
+                      type="text"
+                      placeholder="Code"
+                      value={tech.code}
+                      onChange={(e) => handleUpdateTech(tech.id, tech.name, e.target.value, tech.group || TechnicianGroup.MAIN)}
+                      className="w-16 bg-transparent border-none focus:ring-0 font-mono text-xs text-slate-500"
+                    />
+                  </div>
                   <button 
                     onClick={() => handleRemoveTech(tech.id)}
                     className="p-2 text-rose-400 hover:text-rose-600 transition-colors"
@@ -142,10 +183,10 @@ const TechManagerModal: React.FC<TechManagerModalProps> = ({ isOpen, onClose, te
                 onClick={handleAddTech}
                 className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold text-xs uppercase tracking-widest hover:border-indigo-300 hover:text-indigo-500 transition-all"
               >
-                + Add Technician
+                + Add Technician to {activeGroupTab === TechnicianGroup.MAIN ? localConfig.mainLabel : localConfig.irLabel}
               </button>
             </div>
-          ) : (
+          ) : activeTab === 'users' ? (
             <div className="space-y-4">
               {loadingUsers ? (
                 <div className="text-center py-10 text-slate-400 font-bold animate-pulse">Loading Users...</div>
@@ -178,6 +219,32 @@ const TechManagerModal: React.FC<TechManagerModalProps> = ({ isOpen, onClose, te
                   </div>
                 ))
               )}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Calendar Labels</h3>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Main Calendar Label</label>
+                    <input 
+                      type="text"
+                      value={localConfig.mainLabel}
+                      onChange={(e) => setLocalConfig({ ...localConfig, mainLabel: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-500 uppercase ml-1">I&R Calendar Label</label>
+                    <input 
+                      type="text"
+                      value={localConfig.irLabel}
+                      onChange={(e) => setLocalConfig({ ...localConfig, irLabel: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>

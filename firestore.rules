@@ -1,6 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
 
     // ===============================================================
     // Assumed Data Model
@@ -21,6 +26,7 @@ service cloud.firestore {
     //   - id: string (required)
     //   - name: string (required)
     //   - code: string (required)
+    //   - group: string (optional, enum: ['MAIN', 'IR'])
     //
     // Collection: shifts
     // Document ID: {shiftId} (usually techId_date)
@@ -44,9 +50,10 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager' ||
-          (request.auth.token.email == "saintk188@gmail.com" && request.auth.token.email_verified == true));
+      return isAuthenticated() && (
+        (request.auth.token.email == "saintk188@gmail.com") ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager')
+      );
     }
 
     function hasRequiredFields(fields) {
@@ -81,15 +88,14 @@ service cloud.firestore {
     }
 
     function isValidTechnician(data) {
-      return hasOnlyAllowedFields(['id', 'name', 'code']) &&
-             data.id is string && data.id.size() > 0 && data.id.size() < 128 &&
+      return data.id is string && data.id.size() > 0 && data.id.size() < 128 &&
              data.name is string && data.name.size() > 0 && data.name.size() < 128 &&
-             data.code is string && data.code.size() > 0 && data.code.size() < 32;
+             (!('code' in data) || (data.code is string && data.code.size() < 32)) &&
+             (!('group' in data) || (data.group in ['MAIN', 'IR']));
     }
 
     function isValidShift(data) {
-      return hasOnlyAllowedFields(['techId', 'date', 'code']) &&
-             data.techId is string && data.techId.size() > 0 && data.techId.size() < 128 &&
+      return data.techId is string && data.techId.size() > 0 && data.techId.size() < 128 &&
              isValidDateString(data.date) &&
              data.code is string && data.code.size() > 0 && data.code.size() < 32;
     }
@@ -112,12 +118,13 @@ service cloud.firestore {
 
     match /technicians/{techId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidTechnician(request.resource.data);
+      allow create, update: if isAdmin() && isValidTechnician(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /shifts/{shiftId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidShift(request.resource.data);
+      allow create, update: if isAdmin() && isValidShift(request.resource.data);
       allow delete: if isAdmin();
     }
 

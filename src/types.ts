@@ -25,16 +25,27 @@ export enum ShiftCode {
   ENT = 'ENT'
 }
 
+export enum TechnicianGroup {
+  MAIN = 'MAIN',
+  IR = 'IR'
+}
+
 export interface Technician {
   id: string;
   name: string;
   code: string;
+  group?: TechnicianGroup;
 }
 
 export interface Shift {
   techId: string;
   date: string; // YYYY-MM-DD
   code: ShiftCode;
+}
+
+export interface CalendarConfig {
+  mainLabel: string;
+  irLabel: string;
 }
 
 export interface SmartParseShiftResult {
