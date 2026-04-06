@@ -19,7 +19,7 @@ import {
   isWeekend,
   parse
 } from 'date-fns';
-import { Shift, ShiftCode, Technician, UserProfile, UserRole, TechnicianGroup, CalendarConfig } from './types';
+import { Shift, ShiftCode, Technician, UserProfile, UserRole, CalendarConfig, GroupData } from './types';
 import firebaseConfig from '../firebase-applet-config.json';
 import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon, ShareIcon } from './components/Icons';
 import TechManagerModal from './components/TechManagerModal';
@@ -307,19 +307,19 @@ const Login: React.FC<LoginProps> = ({ onClose }) => {
 };
 
 const DEFAULT_TECHNICIANS: Technician[] = [
-  { id: '061', name: 'Jerry Aschoff', code: '061', group: TechnicianGroup.MAIN },
-  { id: '261', name: 'Thomas Jimenez', code: '261', group: TechnicianGroup.MAIN },
-  { id: '700', name: 'Darrin Westberg', code: '700', group: TechnicianGroup.MAIN },
-  { id: '375', name: 'Bryan Baca', code: '375', group: TechnicianGroup.MAIN },
-  { id: '170', name: 'Richard Hood', code: '170', group: TechnicianGroup.MAIN },
-  { id: '171', name: 'Jason Hood', code: '171', group: TechnicianGroup.MAIN },
-  { id: '804', name: 'David Winterfeldt', code: '804', group: TechnicianGroup.MAIN },
-  { id: '435', name: 'Jeremiah Lawson', code: '435', group: TechnicianGroup.MAIN },
-  { id: '391', name: 'Mike Roth Roth', code: '391', group: TechnicianGroup.MAIN },
-  { id: '392', name: 'Anthony Paul', code: '392', group: TechnicianGroup.MAIN },
-  { id: '429', name: 'Chris Hovelsen', code: '429', group: TechnicianGroup.MAIN },
-  { id: '753', name: 'Robert Hernandez', code: '753', group: TechnicianGroup.MAIN },
-  { id: '999', name: 'Gavin Erb', code: 'GE', group: TechnicianGroup.MAIN },
+  { id: '061', name: 'Jerry Aschoff', code: '061', group: 'MAIN', order: 0 },
+  { id: '261', name: 'Thomas Jimenez', code: '261', group: 'MAIN', order: 1 },
+  { id: '700', name: 'Darrin Westberg', code: '700', group: 'MAIN', order: 2 },
+  { id: '375', name: 'Bryan Baca', code: '375', group: 'MAIN', order: 3 },
+  { id: '170', name: 'Richard Hood', code: '170', group: 'MAIN', order: 4 },
+  { id: '171', name: 'Jason Hood', code: '171', group: 'MAIN', order: 5 },
+  { id: '804', name: 'David Winterfeldt', code: '804', group: 'MAIN', order: 6 },
+  { id: '435', name: 'Jeremiah Lawson', code: '435', group: 'MAIN', order: 7 },
+  { id: '391', name: 'Mike Roth Roth', code: '391', group: 'MAIN', order: 8 },
+  { id: '392', name: 'Anthony Paul', code: '392', group: 'MAIN', order: 9 },
+  { id: '429', name: 'Chris Hovelsen', code: '429', group: 'MAIN', order: 10 },
+  { id: '753', name: 'Robert Hernandez', code: '753', group: 'MAIN', order: 11 },
+  { id: '999', name: 'Gavin Erb', code: 'GE', group: 'MAIN', order: 12 },
 ];
 
 const SHIFT_METADATA: Record<ShiftCode, { color: string; label: string; bg: string }> = {
@@ -349,7 +349,7 @@ const App: React.FC = () => {
   const [isTechModalOpen, setIsTechModalOpen] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [viewMode, setViewMode] = useState<'week' | 'month' | 'year'>('month');
-  const [activeGroup, setActiveGroup] = useState<TechnicianGroup>(TechnicianGroup.MAIN);
+  const [activeGroup, setActiveGroup] = useState<string>('MAIN');
   const [calendarConfig, setCalendarConfig] = useState<CalendarConfig>({
     mainLabel: 'Main',
     irLabel: 'I&R'
@@ -425,8 +425,18 @@ const App: React.FC = () => {
     return () => window.removeEventListener('mouseup', handleMouseUp);
   }, []);
 
+  const safeGroups = useMemo(() => {
+    if (calendarConfig.groups && calendarConfig.groups.length > 0) return calendarConfig.groups;
+    return [
+      { id: 'MAIN', name: calendarConfig.mainLabel || 'Main' },
+      { id: 'IR', name: calendarConfig.irLabel || 'I&R' }
+    ];
+  }, [calendarConfig]);
+
   const filteredTechnicians = useMemo(() => {
-    return technicians.filter(t => (t.group || TechnicianGroup.MAIN) === activeGroup);
+    return technicians
+      .filter(t => (t.group || 'MAIN') === activeGroup)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [technicians, activeGroup]);
 
   const days = useMemo(() => {
@@ -790,19 +800,16 @@ const App: React.FC = () => {
               <div className="w-24 sm:w-64 shrink-0 bg-slate-50 border-r border-slate-200 px-2 sm:px-4 py-3 flex items-end">
                 <div className="flex flex-col items-center gap-1">
                 <span className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Tech Info</span>
-                <div className="flex bg-slate-100 p-0.5 rounded-lg">
-                  <button 
-                    onClick={() => setActiveGroup(TechnicianGroup.MAIN)}
-                    className={`px-2 py-0.5 text-[8px] font-black uppercase rounded-md transition-all ${activeGroup === TechnicianGroup.MAIN ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                  >
-                    {calendarConfig.mainLabel}
-                  </button>
-                  <button 
-                    onClick={() => setActiveGroup(TechnicianGroup.IR)}
-                    className={`px-2 py-0.5 text-[8px] font-black uppercase rounded-md transition-all ${activeGroup === TechnicianGroup.IR ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                  >
-                    {calendarConfig.irLabel}
-                  </button>
+                <div className="flex bg-slate-100 p-0.5 rounded-lg flex-wrap max-w-[200px] sm:max-w-full">
+                  {safeGroups.map(group => (
+                    <button 
+                      key={group.id}
+                      onClick={() => setActiveGroup(group.id)}
+                      className={`px-2 py-0.5 text-[8px] font-black uppercase rounded-md transition-all ${activeGroup === group.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      {group.name}
+                    </button>
+                  ))}
                 </div>
               </div>
               </div>

@@ -25,16 +25,17 @@ export enum ShiftCode {
   ENT = 'ENT'
 }
 
-export enum TechnicianGroup {
-  MAIN = 'MAIN',
-  IR = 'IR'
+export interface GroupData {
+  id: string;
+  name: string;
 }
 
 export interface Technician {
   id: string;
   name: string;
   code: string;
-  group?: TechnicianGroup;
+  group?: string;
+  order?: number;
 }
 
 export interface Shift {
@@ -44,8 +45,9 @@ export interface Shift {
 }
 
 export interface CalendarConfig {
-  mainLabel: string;
-  irLabel: string;
+  mainLabel?: string;
+  irLabel?: string;
+  groups?: GroupData[];
 }
 
 export interface SmartParseShiftResult {

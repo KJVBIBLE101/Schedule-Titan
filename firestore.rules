@@ -91,7 +91,7 @@ service cloud.firestore {
       return data.id is string && data.id.size() > 0 && data.id.size() < 128 &&
              data.name is string && data.name.size() > 0 && data.name.size() < 128 &&
              (!('code' in data) || (data.code is string && data.code.size() < 32)) &&
-             (!('group' in data) || (data.group in ['MAIN', 'IR']));
+             (!('group' in data) || (data.group is string));
     }
 
     function isValidShift(data) {
