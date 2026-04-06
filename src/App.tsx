@@ -481,6 +481,14 @@ const App: React.FC = () => {
         batch.set(doc(db, 'technicians', tech.id), tech);
       });
 
+      // Delete technicians that were removed
+      const updatedTechIds = new Set(updatedTechs.map(t => t.id));
+      technicians.forEach(tech => {
+        if (!updatedTechIds.has(tech.id)) {
+          batch.delete(doc(db, 'technicians', tech.id));
+        }
+      });
+
       // If IDs changed, migrate shifts
       if (Object.keys(idMap).length > 0) {
         shifts.forEach(shift => {
