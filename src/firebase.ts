@@ -70,7 +70,7 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
 
 export const createUserProfile = async (user: User): Promise<UserProfile> => {
   // Default manager email from context
-  const isManager = user.email === 'saintk188@gmail.com';
+  const isManager = user.email === 'saintk188@gmail.com' || user.email === 'jscolorado7@gmail.com';
   const profile: UserProfile = {
     uid: user.uid,
     email: user.email || '',
