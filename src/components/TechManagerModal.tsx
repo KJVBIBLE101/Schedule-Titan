@@ -39,7 +39,7 @@ const TechManagerModal: React.FC<TechManagerModalProps> = ({ isOpen, onClose, te
 
   useEffect(() => {
     if (isOpen) {
-      setLocalTechs(technicians.sort((a, b) => (a.order || 0) - (b.order || 0)));
+      setLocalTechs([...technicians].sort((a, b) => (a.order || 0) - (b.order || 0)));
       const newConfig = getInitialConfig(calendarConfig);
       setLocalConfig(newConfig);
       if (newConfig.groups && newConfig.groups.length > 0 && !newConfig.groups.find(g => g.id === activeGroupTab)) {
@@ -99,7 +99,8 @@ const TechManagerModal: React.FC<TechManagerModalProps> = ({ isOpen, onClose, te
 
   const handleAddTech = () => {
     const newId = Math.random().toString(36).substr(2, 3);
-    const order = localTechs.length;
+    const groupTechs = localTechs.filter(t => (t.group || 'MAIN') === activeGroupTab);
+    const order = groupTechs.length;
     setLocalTechs([...localTechs, { id: newId, name: 'New Technician', code: newId, group: activeGroupTab, order }]);
   };
 
@@ -147,8 +148,8 @@ const TechManagerModal: React.FC<TechManagerModalProps> = ({ isOpen, onClose, te
     setDraggedTechId(null);
   };
 
-  const handleSave = () => {
-    onSave(localTechs, {}, localConfig);
+  const handleSave = async () => {
+    await onSave(localTechs, {}, localConfig);
     onClose();
   };
 
@@ -156,6 +157,7 @@ const TechManagerModal: React.FC<TechManagerModalProps> = ({ isOpen, onClose, te
     const newId = 'GROUP_' + Math.random().toString(36).substr(2, 4).toUpperCase();
     const newGroups = [...(localConfig.groups || []), { id: newId, name: 'New Group' }];
     setLocalConfig({ ...localConfig, groups: newGroups });
+    setActiveGroupTab(newId);
   };
 
   const removeGroup = (groupId: string) => {
